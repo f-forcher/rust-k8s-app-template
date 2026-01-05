@@ -5,7 +5,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release
 
-FROM debian:bookworm-slim
+FROM debian:stable-slim
 
 RUN useradd -r -u 10001 -g nogroup appuser
 WORKDIR /app
