@@ -1,4 +1,5 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
+use anyhow::Result;
+use axum::{Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{SecondsFormat, Utc};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -10,8 +11,8 @@ struct AppState {
     start: Instant,
 }
 
-#[tokio::main]
-async fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<()> {
     let state = Arc::new(AppState {
         start: Instant::now(),
     });
@@ -21,18 +22,15 @@ async fn main() {
         let mut counter: u64 = 0;
         loop {
             sleep(Duration::from_secs(1)).await;
-            counter += 1;
-            let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+            let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
             if log_state.start.elapsed() < Duration::from_secs(STARTUP_SECONDS) {
                 println!(
                     r#"{{"timestamp":"{}","message":"starting up..."}}"#,
                     timestamp
                 );
             } else {
-                println!(
-                    r#"{{"timestamp":"{}","counter":"{}"}}"#,
-                    timestamp, counter
-                );
+                counter += 1;
+                println!(r#"{{"timestamp":"{}","counter":"{}"}}"#, timestamp, counter);
             }
         }
     });
@@ -43,12 +41,10 @@ async fn main() {
         .route("/healthz/startup", get(startup))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080")
-        .await
-        .expect("bind failed");
-    axum::serve(listener, app)
-        .await
-        .expect("server failed");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
 
 async fn live() -> &'static str {
